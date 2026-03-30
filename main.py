@@ -43,5 +43,5 @@ if __name__ == "__main__":
     )
 
     counts, metadata = _filter_data(counts, metadata)
-    print(counts, metadata)
-    
+
+
