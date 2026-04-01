@@ -75,7 +75,7 @@ plot_pca <- function(res, var1 = "Condition", var2 = "Timepoint",
     theme_gray(base_size = 15)
 }
 
-plot_heatmap <- function(res, metadata, opciones1 = NULL, opciones2 = NULL) {
+plot_heatmap <- function(res, metadata, vst, opciones1 = NULL, opciones2 = NULL) {
   
   res_df <- as.data.frame(res)
   
@@ -86,8 +86,8 @@ plot_heatmap <- function(res, metadata, opciones1 = NULL, opciones2 = NULL) {
   if (length(sig) == 0) stop("No hay genes significativos con estos criterios")
   cat("Genes significativos:", length(sig), "\n")
   
-  # Usar vst_corrected en lugar de recalcular vst
-  mat <- vst_corrected[sig, ]
+  # Usar vst_corrected
+  mat <- vst[sig, ]
   
   # Filtrar muestras
   if (is.null(opciones1) | is.null(opciones2)) {
@@ -109,6 +109,20 @@ plot_heatmap <- function(res, metadata, opciones1 = NULL, opciones2 = NULL) {
            scale          = "row",
            show_colnames  = FALSE,
            fontsize_row   = 6)
+}
+
+batcheffect <- function(dds){
+  # Exportar matriz VST
+  vsd <- vst(dds, blind = FALSE)  # Variance-stabilizing transformation
+  vst_mat <- assay(vsd)
+  
+  # Remove Batch Effect 
+  vst_corrected <- removeBatchEffect(
+    vst_mat,
+    batch  = metadata_filter$Ext_ID,
+    design = model.matrix(~ Timepoint, data = metadata_filter)
+  )
+  return (vst_corrected)
 }
 
 # Load data (counts and metadata)
@@ -162,16 +176,8 @@ dds <- dds[rowSums(counts(dds)) > 10, ]
 dds <- DESeq(dds)
 resultsNames(dds) # lists the coefficients
 
-# Exportar matriz VST
-vsd <- vst(dds, blind = FALSE)  # Variance-stabilizing transformation
-vst_mat <- assay(vsd)
-
-# Remove Batch Effect 
-vst_corrected <- removeBatchEffect(
-  vst_mat,
-  batch  = metadata_filter$Ext_ID,
-  design = model.matrix(~ Timepoint, data = metadata_filter)
-)
+# Remove Batch Effect
+vst_corrected <- batcheffect(dds)
 
 # PCA plot
 plot_pca(vst_corrected, opciones1 = c("Placebo","Vaccinated"), opciones2 = c("1","2","3"))
@@ -218,6 +224,8 @@ sum(res_T3_vacVsPlacebo$padj < 0.05, na.rm=TRUE)
 sum(res_T3_vacVsPlacebo$padj < 0.05 & 
       abs(res_T3_vacVsPlacebo$log2FoldChange) > 2, na.rm = TRUE)
 
-plot_heatmap(res_T3_vacVsPlacebo, metadata_filter, opciones1 = c("3"), opciones2 = c("Vaccinated", "Placebo"))
+# Heatmaps
+plot_heatmap(res_vac_T1vsT3, metadata_filter, vst_corrected, opciones1 = c("1","3"), opciones2 = c("Placebo"))
+
 
   
